@@ -124,6 +124,7 @@
       position: relative;
       height: 30px;             
       margin-bottom: 40px;
+      border: 2px green solid;
 
     }
     .progress-bar {
@@ -214,7 +215,7 @@
           });
 
           const totalSteps = Object.values(teamTotals).reduce((a,b)=>a+b);
-          const goal = 1000000;
+          const goal = 5000000;
           const percentage = totalSteps * 100 / goal;
           document.querySelector("#totalSteps").innerHTML = totalSteps.toLocaleString();
           document.querySelector(".progress-text").innerHTML = `${percentage.toFixed(2)}%`;
