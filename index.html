@@ -35,8 +35,16 @@
 
     h1 {
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 16px;
       font-size: 2.4em;
+      color: var(--accent);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 2em;
       color: var(--accent);
       text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
@@ -107,16 +115,52 @@
       from { opacity: 0; transform: translateX(20px); }
       to { opacity: 1; transform: translateX(0); }
     }
+
+    .progress-container {
+      width: 100%;
+      background-color: #e0ve0e0; 
+      border-radius: 8px;        
+      overflow: hidden;
+      position: relative;
+      height: 30px;             
+      margin-bottom: 40px;
+
+    }
+    .progress-bar {
+      height: 100%;
+      width: 75%;                
+      background-color: var(--accent);
+      transition: width 0.3s ease;
+    }
+    .progress-text {
+      position: absolute;
+      width: 100%;
+      top: 0;
+      left: 0;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      color: #000;               
+      pointer-events: none;
+    }
+
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🌿 Srinagar to Ladakh 🚶‍♀️</h1>
+    <h2>Total Steps: <span id="totalSteps"></span></h2>
     <table>
       <thead>
         <tr>
           <th>Team</th>
           <th>Total Steps</th>
+          <div class="progress-container">
+            <div class="progress-bar"></div>
+            <div class="progress-text"></div>
+          </div>
         </tr>
       </thead>
       <tbody id="stepsTable"></tbody>
@@ -168,6 +212,14 @@
               }
             }
           });
+
+          const totalSteps = Object.values(teamTotals).reduce((a,b)=>a+b);
+          const goal = 1000000;
+          const percentage = totalSteps * 100 / goal;
+          document.querySelector("#totalSteps").innerHTML = totalSteps.toLocaleString();
+          document.querySelector(".progress-text").innerHTML = `${percentage.toFixed(2)}%`;
+
+          document.querySelector(".progress-bar").style["width"] = `${percentage}%`;
 
           const tableBody = document.getElementById('stepsTable');
           tableBody.innerHTML = '';
