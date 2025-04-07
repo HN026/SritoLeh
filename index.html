@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Srinagar to Ladakh Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg-color: #eaf4ea;
@@ -33,20 +34,20 @@
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
-    h1 {
+    h1, h2 {
       text-align: center;
-      margin-bottom: 16px;
-      font-size: 2.4em;
       color: var(--accent);
       text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
+    h1 {
+      font-size: 2.4em;
+      margin-bottom: 16px;
+    }
+
     h2 {
-      text-align: center;
-      margin-bottom: 20px;
       font-size: 2em;
-      color: var(--accent);
-      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
     }
 
     table {
@@ -61,7 +62,6 @@
 
     th {
       background-color: var(--highlight);
-      font-weight: bold;
       color: white;
       border-bottom: 2px solid var(--accent);
     }
@@ -92,47 +92,24 @@
       color: #666;
     }
 
-    @media (max-width: 600px) {
-      th, td {
-        padding: 12px;
-        font-size: 0.95em;
-      }
-
-      h1 {
-        font-size: 2em;
-      }
-    }
-
-    tr {
-      transition: all 0.3s ease-in-out;
-    }
-
-    tr.member-row {
-      animation: fadeIn 0.4s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateX(20px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
     .progress-container {
       width: 100%;
-      background-color: #e0ve0e0; 
-      border-radius: 8px;        
+      background-color: #e0ffe0;
+      border-radius: 8px;
       overflow: hidden;
       position: relative;
-      height: 30px;             
+      height: 30px;
       margin-bottom: 40px;
       border: 2px green solid;
-
     }
+
     .progress-bar {
       height: 100%;
-      width: 75%;                
+      width: 75%;
       background-color: var(--accent);
       transition: width 0.3s ease;
     }
+
     .progress-text {
       position: absolute;
       width: 100%;
@@ -143,29 +120,72 @@
       justify-content: center;
       align-items: center;
       font-weight: bold;
-      color: #000;               
+      color: #000;
       pointer-events: none;
     }
 
+    .chart-container {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 40px;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    @media (max-width: 768px) {
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      th, td {
+        padding: 12px 10px;
+        font-size: 0.9em;
+      }
+
+      h1 {
+        font-size: 2em;
+      }
+
+      h2 {
+        font-size: 1.5em;
+        margin-bottom: 12px;
+      }
+
+      .progress-container {
+        height: 24px;
+      }
+
+      .progress-text {
+        font-size: 0.8em;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🌿 Srinagar to Ladakh 🚶‍♀️</h1>
     <h2>Total Steps: <span id="totalSteps"></span></h2>
+    <div class="progress-container">
+      <div class="progress-bar"></div>
+      <div class="progress-text"></div>
+    </div>
     <table>
       <thead>
         <tr>
           <th>Team</th>
           <th>Total Steps</th>
-          <div class="progress-container">
-            <div class="progress-bar"></div>
-            <div class="progress-text"></div>
-          </div>
         </tr>
       </thead>
       <tbody id="stepsTable"></tbody>
     </table>
+    <div class="chart-container">
+      <canvas id="activityChart"></canvas>
+    </div>
     <div class="last-updated" id="lastUpdated">Last updated: just now</div>
   </div>
 
@@ -175,6 +195,39 @@
 
     let memberData = {};
     let expandedTeams = new Set();
+    let chart;
+
+    function renderChart(data) {
+      const ctx = document.getElementById('activityChart').getContext('2d');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(data),
+          datasets: [{
+            label: 'Activities by Count',
+            data: Object.values(data),
+            backgroundColor: '#4CAF50'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#2e3d30' }
+            },
+            x: {
+              ticks: { color: '#2e3d30' }
+            }
+          }
+        }
+      });
+    }
 
     function fetchAndRenderSteps() {
       fetch(sheetURL)
@@ -184,72 +237,69 @@
           const headers = json.table.cols.map(col => col.label?.trim().toLowerCase());
           const rows = json.table.rows;
 
-          const nameIndex = headers.findIndex(label => label === 'name');
-          const teamIndex = headers.findIndex(label => label === 'team');
-          const stepsIndex = headers.findIndex(label => label === 'steps tracked');
-
-          if (teamIndex === -1 || stepsIndex === -1 || nameIndex === -1) {
-            throw new Error('Missing required columns: Name, TEAM or Steps Tracked');
-          }
+          const nameIndex = headers.indexOf('name');
+          const teamIndex = headers.indexOf('team');
+          const stepsIndex = headers.indexOf('steps tracked');
+          const activityIndex = headers.indexOf('activity');
 
           const teamTotals = {};
           memberData = {};
+          const activityCounts = {};
 
           rows.forEach(row => {
             const nameCell = row.c[nameIndex];
             const teamCell = row.c[teamIndex];
             const stepsCell = row.c[stepsIndex];
+            const activityCell = row.c[activityIndex];
 
             if (nameCell && teamCell && stepsCell) {
               const name = nameCell.v.trim();
               const team = teamCell.v.trim();
               const steps = parseInt(stepsCell.v, 10);
-
+              const activity = activityCell?.v.trim() || 'Unknown';
               if (!isNaN(steps)) {
                 teamTotals[team] = (teamTotals[team] || 0) + steps;
-
+                activityCounts[activity] = (activityCounts[activity] || 0) + 1;
                 if (!memberData[team]) memberData[team] = {};
                 memberData[team][name] = (memberData[team][name] || 0) + steps;
               }
             }
           });
 
-          const totalSteps = Object.values(teamTotals).reduce((a,b)=>a+b);
+          const totalSteps = Object.values(teamTotals).reduce((a, b) => a + b, 0);
           const goal = 5000000;
-          const percentage = totalSteps * 100 / goal;
+          const percentage = (totalSteps * 100) / goal;
+
           document.querySelector("#totalSteps").innerHTML = totalSteps.toLocaleString();
           document.querySelector(".progress-text").innerHTML = `${percentage.toFixed(2)}%`;
-
-          document.querySelector(".progress-bar").style["width"] = `${percentage}%`;
+          document.querySelector(".progress-bar").style.width = `${percentage}%`;
 
           const tableBody = document.getElementById('stepsTable');
           tableBody.innerHTML = '';
 
-          Object.entries(teamTotals)
-            .sort((a, b) => b[1] - a[1])
-            .forEach(([team, totalSteps]) => {
-              const row = document.createElement('tr');
-              row.classList.add('team-row');
-              row.innerHTML = `<td>${team}</td><td>${totalSteps.toLocaleString()}</td>`;
-              row.addEventListener('click', () => toggleMembers(team, row));
-              tableBody.appendChild(row);
+          Object.entries(teamTotals).sort((a, b) => b[1] - a[1]).forEach(([team, steps]) => {
+            const row = document.createElement('tr');
+            row.classList.add('team-row');
+            row.innerHTML = `<td>${team}</td><td>${steps.toLocaleString()}</td>`;
+            row.addEventListener('click', () => toggleMembers(team, row));
+            tableBody.appendChild(row);
 
-              if (expandedTeams.has(team)) {
-                Object.entries(memberData[team])
-                  .sort((a, b) => b[1] - a[1])
-                  .forEach(([name, steps]) => {
-                    const memberRow = document.createElement('tr');
-                    memberRow.classList.add('member-row');
-                    memberRow.setAttribute('data-team', team);
-                    memberRow.innerHTML = `<td>${name}</td><td>${steps.toLocaleString()}</td>`;
-                    tableBody.appendChild(memberRow);
-                  });
-              }
-            });
+            if (expandedTeams.has(team)) {
+              Object.entries(memberData[team])
+                .sort((a, b) => b[1] - a[1])
+                .forEach(([name, steps]) => {
+                  const memberRow = document.createElement('tr');
+                  memberRow.classList.add('member-row');
+                  memberRow.setAttribute('data-team', team);
+                  memberRow.innerHTML = `<td>${name}</td><td>${steps.toLocaleString()}</td>`;
+                  tableBody.appendChild(memberRow);
+                });
+            }
+          });
 
-          const now = new Date();
-          document.getElementById('lastUpdated').textContent =
-            `Last updated: ${now.toLocaleTimeString()}`;
+          renderChart(activityCounts);
+
+          document.getElementById('lastUpdated').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
         })
         .catch(err => {
           console.error('Error:', err);
@@ -284,7 +334,7 @@
     }
 
     fetchAndRenderSteps();
-    setInterval(fetchAndRenderSteps, 100000);
+    setInterval(fetchAndRenderSteps, 10000);
   </script>
 </body>
 </html>
