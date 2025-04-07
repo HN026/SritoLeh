@@ -3,54 +3,115 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Srinagar to Ladakh - Team Steps Tracker</title>
+  <title>Srinagar to Ladakh Tracker</title>
   <style>
+    :root {
+      --bg-color: #eaf4ea;
+      --accent: #4CAF50;
+      --highlight: #81c784;
+      --text: #2e3d30;
+      --glass: rgba(255, 255, 255, 0.6);
+      --shadow: rgba(76, 175, 80, 0.3);
+    }
+
     body {
+      margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      padding: 20px;
+      background: linear-gradient(to right, #c9f7d5, #f0fff0);
+      color: var(--text);
+      padding: 40px 20px;
     }
+
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px 30px;
+      box-shadow: 0 4px 30px var(--shadow);
+      border: 1px solid rgba(255, 255, 255, 0.3);
     }
+
     h1 {
       text-align: center;
-      margin-bottom: 30px;
-      color: #2c3e50;
+      margin-bottom: 40px;
+      font-size: 2.4em;
+      color: var(--accent);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
     }
+
     th, td {
-      padding: 12px;
-      text-align: center;
-      border-bottom: 1px solid #ddd;
+      padding: 16px 20px;
+      text-align: left;
     }
+
     th {
-      background-color: #3498db;
+      background-color: var(--highlight);
+      font-weight: bold;
       color: white;
+      border-bottom: 2px solid var(--accent);
     }
-    tr:hover {
-      background-color: #f1f1f1;
+
+    tr.team-row {
+      cursor: pointer;
+      transition: background 0.3s ease;
     }
+
+    tr.team-row:hover {
+      background-color: #d0e9d2;
+    }
+
+    tr.member-row {
+      background-color: #f1fdf1;
+      font-size: 0.95em;
+    }
+
+    tr.member-row td {
+      padding-left: 40px;
+      color: #4a5e50;
+    }
+
     .last-updated {
       text-align: center;
-      margin-top: 10px;
+      margin-top: 20px;
       font-size: 0.9em;
-      color: #888;
+      color: #666;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        padding: 12px;
+        font-size: 0.95em;
+      }
+
+      h1 {
+        font-size: 2em;
+      }
+    }
+
+    tr {
+      transition: all 0.3s ease-in-out;
+    }
+
+    tr.member-row {
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Srinagar to Ladakh - Team Progress</h1>
+    <h1>🌿 Srinagar to Ladakh 🚶‍♀️</h1>
     <table>
       <thead>
         <tr>
@@ -58,9 +119,7 @@
           <th>Total Steps</th>
         </tr>
       </thead>
-      <tbody id="stepsTable">
-        <!-- Table rows will be injected here -->
-      </tbody>
+      <tbody id="stepsTable"></tbody>
     </table>
     <div class="last-updated" id="lastUpdated">Last updated: just now</div>
   </div>
@@ -68,6 +127,9 @@
   <script>
     const sheetID = '1NyK1nFiYTe2GoOh0ldIEsebYTHMUWnAZsRp0jAOAuek';
     const sheetURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json&sheet=Sheet1`;
+
+    let memberData = {};
+    let expandedTeams = new Set();
 
     function fetchAndRenderSteps() {
       fetch(sheetURL)
@@ -77,41 +139,61 @@
           const headers = json.table.cols.map(col => col.label?.trim().toLowerCase());
           const rows = json.table.rows;
 
+          const nameIndex = headers.findIndex(label => label === 'name');
           const teamIndex = headers.findIndex(label => label === 'team');
           const stepsIndex = headers.findIndex(label => label === 'steps tracked');
 
-          if (teamIndex === -1 || stepsIndex === -1) {
-            throw new Error('Could not find "TEAM" or "Steps Tracked" columns.');
+          if (teamIndex === -1 || stepsIndex === -1 || nameIndex === -1) {
+            throw new Error('Missing required columns: Name, TEAM or Steps Tracked');
           }
 
           const teamTotals = {};
+          memberData = {};
 
           rows.forEach(row => {
+            const nameCell = row.c[nameIndex];
             const teamCell = row.c[teamIndex];
             const stepsCell = row.c[stepsIndex];
 
-            if (teamCell && stepsCell) {
+            if (nameCell && teamCell && stepsCell) {
+              const name = nameCell.v.trim();
               const team = teamCell.v.trim();
               const steps = parseInt(stepsCell.v, 10);
+
               if (!isNaN(steps)) {
                 teamTotals[team] = (teamTotals[team] || 0) + steps;
+
+                if (!memberData[team]) memberData[team] = {};
+                memberData[team][name] = (memberData[team][name] || 0) + steps;
               }
             }
           });
 
-          // Clear and update the table
           const tableBody = document.getElementById('stepsTable');
-          tableBody.innerHTML = ''; // Clear old rows
+          tableBody.innerHTML = '';
 
           Object.entries(teamTotals)
             .sort((a, b) => b[1] - a[1])
             .forEach(([team, totalSteps]) => {
               const row = document.createElement('tr');
+              row.classList.add('team-row');
               row.innerHTML = `<td>${team}</td><td>${totalSteps.toLocaleString()}</td>`;
+              row.addEventListener('click', () => toggleMembers(team, row));
               tableBody.appendChild(row);
+
+              if (expandedTeams.has(team)) {
+                Object.entries(memberData[team])
+                  .sort((a, b) => b[1] - a[1])
+                  .forEach(([name, steps]) => {
+                    const memberRow = document.createElement('tr');
+                    memberRow.classList.add('member-row');
+                    memberRow.setAttribute('data-team', team);
+                    memberRow.innerHTML = `<td>${name}</td><td>${steps.toLocaleString()}</td>`;
+                    tableBody.appendChild(memberRow);
+                  });
+              }
             });
 
-          // Update timestamp
           const now = new Date();
           document.getElementById('lastUpdated').textContent =
             `Last updated: ${now.toLocaleTimeString()}`;
@@ -122,9 +204,33 @@
         });
     }
 
-    // Fetch initially
-    fetchAndRenderSteps();
+    function toggleMembers(team, rowElement) {
+      const tableBody = document.getElementById('stepsTable');
 
+      if (expandedTeams.has(team)) {
+        expandedTeams.delete(team);
+        Array.from(tableBody.querySelectorAll(`[data-team="${team}"]`)).forEach(el => el.remove());
+      } else {
+        expandedTeams.add(team);
+        const insertIndex = Array.from(tableBody.children).indexOf(rowElement) + 1;
+        const memberEntries = Object.entries(memberData[team])
+          .sort((a, b) => b[1] - a[1]);
+
+        memberEntries.reverse().forEach(([name, steps]) => {
+          const memberRow = document.createElement('tr');
+          memberRow.classList.add('member-row');
+          memberRow.setAttribute('data-team', team);
+          memberRow.innerHTML = `<td>${name}</td><td>${steps.toLocaleString()}</td>`;
+          if (tableBody.children[insertIndex]) {
+            tableBody.insertBefore(memberRow, tableBody.children[insertIndex]);
+          } else {
+            tableBody.appendChild(memberRow);
+          }
+        });
+      }
+    }
+
+    fetchAndRenderSteps();
     setInterval(fetchAndRenderSteps, 100000);
   </script>
 </body>
